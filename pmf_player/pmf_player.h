@@ -335,7 +335,7 @@ void pmf_player::mix_buffer_impl(pmf_mixer_buffer &buf_, unsigned num_samples_)
       uint8_t sample_pos_frc=sample_pos&255;
       int16_t smp=((int16_t(int8_t(smp_data&255))*(256-sample_pos_frc))>>8)+((int16_t(int8_t(smp_data>>8))*sample_pos_frc)>>8);
 #else
-      int16_t smp=(int8_t)pgm_read_byte(sample_addr+(sample_pos>>8));
+      int16_t smp=(int8_t)pgm_read_byte( (void*)(sample_addr+(sample_pos>>8)) );
 #endif
 
       // mix the result to the audio buffer (the if-branch with compile-time constant will be optimized out)
