@@ -1,14 +1,24 @@
 #include "pmf_player.h"
-
-
-// music data
-static const uint8_t PROGMEM s_pmf_file[]={
 #include "music.h"
-};
+#include "lib/ESPboyInit.h"
+#include "lib/ESPboyInit.cpp"
+
+#define SAMPLE_RATE 40000
+#define REFRESH_FPS 80
+#define MILLIS_FPS 1000/REFRESH_FPS
+
+ESPboyInit myESPboy;
+TFT_eSprite sprBuffer = TFT_eSprite(&myESPboy.tft);
+
+static const uint32_t colors[] = {TFT_RED, TFT_ORANGE, TFT_YELLOW, TFT_GREEN, TFT_CYAN, TFT_BLUE, TFT_VIOLET};
+static uint8_t hights[20]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
 // globals
 static pmf_player s_player;
-static unsigned s_effect_channel=0;
+static uint8_t s_effect_channel=0;
+static uint8_t cntChannels;
+static uint8_t barWidth;
+
 
 // row_callback_test
 void row_callback_test(void *custom_data_, uint8_t channel_idx_, uint8_t &note_idx_, uint8_t &inst_idx_, uint8_t &volume_, uint8_t &effect_, uint8_t &effect_data_){
@@ -24,63 +34,46 @@ void row_callback_test(void *custom_data_, uint8_t channel_idx_, uint8_t &note_i
 }
 
 
-// example visualization (animate LED's for each track with music)
-#ifdef ARDUINO_ARCH_AVR
-enum {start_led_pin=8};
-enum {max_channel_leds=6};
-#else
-enum {start_led_pin=0};
-enum {max_channel_leds=8};
-#endif
-
-static void example_visualization(void *player_){
-/*
-  const pmf_player *player=(const pmf_player*)player_;
-  unsigned num_channels=min(max_channel_leds, player->num_playback_channels());
-  for(unsigned i=0; i<num_channels; ++i)
-  {
-    pmf_channel_info chl=player->channel_info(i);
-    digitalWrite(start_led_pin+i, chl.note_hit?HIGH:LOW);
-  }
-*/
-}
-
-void setup_example_visualization(pmf_player &player_){
-  /*
-  for(unsigned i=0; i<max_channel_leds; ++i)
-  {
-    pinMode(start_led_pin+i, OUTPUT);
-    digitalWrite(start_led_pin+i, LOW);
-  }
-  player_.set_tick_callback(&example_visualization, &player_);
-*/
+void visualisation(){
+ uint8_t clr;
+   sprBuffer.fillScreen(TFT_BLACK);
+   for (uint8_t i=0; i<cntChannels; i++){
+     if (s_player.channel_info(i).note_hit) hights[i] = 64;
+     if (hights[i] > 0) hights[i]--;    
+     sprBuffer.fillRect(barWidth*i, 64-hights[i], barWidth, 64, colors[clr]);
+     clr++;
+     if (clr >= sizeof(colors)/sizeof(uint32_t)) clr=0;
+   }
 }
 
 
 // setup
 void setup(){
-#if PMF_USE_SERIAL_LOGS==1
-  Serial.begin(9600);
-  delay(1000);
-#endif
-
+  myESPboy.begin("MOD/S3M/XM/IT player"); //Init ESPboy
+  sprBuffer.createSprite(128, 64);
+  
   s_player.load(s_pmf_file);
-/*
-  // Uncomment this code block to enable basic LED visualization (make sure pins don't conflic with used audio device)
-  setup_example_visualization(s_player);
-*/
-
+  
 /*
   // Uncomment this code block to demo code-controlled effect. The code adds 13th channel to Aryx and plays drum beat every 8th row on the channel
   s_effect_channel=s_player.num_playback_channels();
   s_player.enable_playback_channels(s_player.num_playback_channels()+1); // add one extra audio channel for audio effects
   s_player.set_row_callback(&row_callback_test); // setup row callback for the effect
 */
-  s_player.start(22000);
+  s_player.start(SAMPLE_RATE);
+
+  cntChannels = s_player.num_playback_channels();
+  barWidth = 128 / cntChannels;
 }
 
 
 
 void loop(){
-  s_player.update(); // keep updating the audio buffer...
+ static uint32_t counter;
+  if(millis() > counter + MILLIS_FPS){
+    counter = millis();
+    visualisation();
+    sprBuffer.pushSprite(0, 32);
+  }
+  s_player.update();
 }

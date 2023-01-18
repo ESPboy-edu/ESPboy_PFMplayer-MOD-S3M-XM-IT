@@ -28,67 +28,51 @@
 //============================================================================
 
 #include "pmf_player.h"
-#if defined(ARDUINO_ARCH_ESP8266)
 #include "pmf_data.h"
 
 #include "sigma_delta.h"
-#include "timer.h"
-//---------------------------------------------------------------------------
 
-//===========================================================================
-// audio buffer
-//===========================================================================
+#define SOUNDPIN D3
+
 static pmf_audio_buffer<int16_t, 1024> s_audio_buffer;
-//---------------------------------------------------------------------------
 
 
-//===========================================================================
-// pmf_player
-//===========================================================================
-
-uint8_t masterVolume = 255;
-
-IRAM_ATTR void timerHandler( void ){
-    sigmaDeltaWrite(0, (s_audio_buffer.read_sample<uint16_t, 8>() * masterVolume ) >> 8 );
+void IRAM_ATTR timerHandler(){
+    sigmaDeltaWrite(0, (s_audio_buffer.read_sample<uint16_t, 8>()));
 }
 
-uint32_t pmf_player::get_sampling_freq(uint32_t sampling_freq_) const
-{
-  return (1000*1000) / ( (1000*1000)/sampling_freq_ ) ;
+
+uint32_t pmf_player::get_sampling_freq(uint32_t sampling_freq_) const{
+  return (sampling_freq_);
 }
-//----
+
 
 void setupTimer ( int rate, int_handler_t handler ) ;
 void timerHandler( void ) ;
 
-void pmf_player::start_playback(uint32_t sampling_freq_)
-{
-    sigmaDeltaSetup(0, sampling_freq_ );
-    sigmaDeltaAttachPin(D3);
-    sigmaDeltaEnable();
 
+void pmf_player::start_playback(uint32_t sampling_freq_){
+    sigmaDeltaSetup(0, sampling_freq_ );
+    sigmaDeltaAttachPin(SOUNDPIN);
+    sigmaDeltaEnable();
     s_audio_buffer.reset();
 
-    setupTimer ( (1000*1000)/sampling_freq_, (int_handler_t)timerHandler );
+    timer1_attachInterrupt(timerHandler);
+    timer1_enable(TIM_DIV1, TIM_EDGE, TIM_LOOP);
+    timer1_write(80000000 / sampling_freq_);
 }
 
-void pmf_player::stop_playback()
-{
-  /*todo*/
-}
-//----
 
-void pmf_player::mix_buffer(pmf_mixer_buffer &buf_, unsigned num_samples_)
-{
+void pmf_player::stop_playback(){
+  timer1_disable();
+}
+
+
+void pmf_player::mix_buffer(pmf_mixer_buffer &buf_, unsigned num_samples_){
   mix_buffer_impl<int16_t, false, 8>(buf_, num_samples_);
 }
-//----
 
-pmf_mixer_buffer pmf_player::get_mixer_buffer()
-{
+
+pmf_mixer_buffer pmf_player::get_mixer_buffer(){
   return s_audio_buffer.get_mixer_buffer();
 }
-//---------------------------------------------------------------------------
-
-//===========================================================================
-#endif // ARDUINO_ARCH_ESP8266

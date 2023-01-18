@@ -54,7 +54,7 @@ typedef void(*pmf_tick_callback_t)(void *custom_data_);
 //===========================================================================
 enum {pmfplayer_max_channels=12};        // maximum number of audio playback channels (reduce to save dynamic memory)
 #define PMF_USE_STEREO_MIXING 1          // use stereo mixing if supported (interleaved in the audio output buffer)
-#define PMF_USE_LINEAR_INTERPOLATION 0   // interpolate samples linearly for better sound quality (more performanmce intensive)
+#define PMF_USE_LINEAR_INTERPOLATION 1   // interpolate samples linearly for better sound quality (more performanmce intensive)
 #define PFC_USE_SGTL5000_AUDIO_SHIELD 0  // enable playback through SGTL5000-based audio shield (Teensy)
 #define PMF_USE_SERIAL_LOGS 0            // enable logging to serial output (disable to save memory)
 //---------------------------------------------------------------------------
@@ -331,7 +331,7 @@ void pmf_player::mix_buffer_impl(pmf_mixer_buffer &buf_, unsigned num_samples_)
     {
       // get sample data and adjust volume
 #if PMF_USE_LINEAR_INTERPOLATION==1
-      uint16_t smp_data=((uint16_t)pgm_read_word(sample_addr+(sample_pos>>8)));
+      uint16_t smp_data=((uint16_t)pgm_read_word((void *)sample_addr+(sample_pos>>8)));
       uint8_t sample_pos_frc=sample_pos&255;
       int16_t smp=((int16_t(int8_t(smp_data&255))*(256-sample_pos_frc))>>8)+((int16_t(int8_t(smp_data>>8))*sample_pos_frc)>>8);
 #else
